@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Acme Corp",
+    "twilio_account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "twilio_auth_token": "REPLACE_ME",
+    "notify_email": "ops@acme-corp.com",
+    "zendesk_organization_id": null
+  },
+  {
+    "name": "Globex Inc.",
+    "twilio_account_sid": "ACYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "twilio_auth_token": "REPLACE_ME",
+    "notify_email": "support@globex.com",
+    "zendesk_organization_id": null
+  }
+]

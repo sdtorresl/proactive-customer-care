@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: proactive-customer-care
+      POSTGRES_PASSWORD: proactive-customer-care
+      POSTGRES_DB: proactive-customer-care
+    volumes:
+      - proactive-customer-care_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U proactive-customer-care"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Sobrescribe DATABASE_URL para apuntar al servicio 'db' del compose.
+      DATABASE_URL: postgresql://proactive-customer-care:proactive-customer-care@db:5432/proactive-customer-care
+      # RUN_MODE=loop (default) corre dentro del propio contenedor cada
+      # LOOP_INTERVAL_SECONDS sin depender de cron externo, o RUN_MODE=once +
+      # cron del host / `docker compose run --rm app`.
+      RUN_MODE: ${RUN_MODE:-loop}
+      LOOP_INTERVAL_SECONDS: ${LOOP_INTERVAL_SECONDS:-60}
+    volumes:
+      - ./clients.json:/app/clients.json:ro
+    restart: "no"
+
+volumes:
+  proactive-customer-care_pgdata:

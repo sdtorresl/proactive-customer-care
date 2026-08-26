@@ -1,13 +1,13 @@
-"""Detección de anomalías basada en reglas estadísticas simples (sin dependencia de IA).
+"""Anomaly detection based on simple statistical rules (no AI dependency).
 
-Para cada código de error de un cliente, se compara el conteo de la corrida
-actual contra una línea base histórica (promedio y desviación estándar de las
-últimas N corridas almacenadas en Postgres). Se marca como anomalía cuando:
+For each client error code, the current run count is compared with a historical
+baseline (average and standard deviation from the last N runs stored in Postgres).
+It is marked as an anomaly when:
 
-  1. El conteo actual supera el umbral mínimo absoluto (evita ruido de 1-2 errores).
-  2. El incremento porcentual sobre el promedio histórico supera ANOMALY_PCT_THRESHOLD.
-  3. Existe una racha de al menos ANOMALY_MIN_STREAK corridas consecutivas al alza,
-     para distinguir una tendencia sostenida de un pico aislado.
+  1. The current count exceeds the absolute minimum threshold (avoids 1-2 error noise).
+  2. The percentage increase over the historical average exceeds ANOMALY_PCT_THRESHOLD.
+  3. There is a streak of at least ANOMALY_MIN_STREAK consecutive increasing runs,
+      distinguishing a sustained trend from an isolated spike.
 """
 
 import logging
@@ -34,8 +34,8 @@ class Anomaly:
 
 def _pct_increase(current: int, baseline_avg: float) -> float:
     if baseline_avg <= 0:
-        # Sin historial previo: cualquier ocurrencia nueva y por encima del mínimo
-        # se trata como 100% de incremento para no dividir por cero.
+        # Without history, any new occurrence above the minimum is treated as a
+        # 100% increase to avoid division by zero.
         return 100.0 if current > 0 else 0.0
     return ((current - baseline_avg) / baseline_avg) * 100.0
 
@@ -49,7 +49,7 @@ def evaluate_error_code(
 ) -> Optional[Anomaly]:
     if current_count < settings.anomaly_min_count:
         log.debug(
-            "%s/%s: conteo %s por debajo del mínimo %s, se descarta",
+            "%s/%s: count %s is below minimum %s; skipping",
             client_id, error_code, current_count, settings.anomaly_min_count,
         )
         return None
@@ -57,9 +57,9 @@ def evaluate_error_code(
     history = db.get_recent_counts(client_id, error_code, settings.baseline_window)
 
     if len(history) < 2:
-        # No hay suficiente línea base todavía para calificar de forma confiable.
+        # There is not enough baseline data for reliable classification yet.
         log.debug(
-            "%s/%s: histórico insuficiente (%s corridas), se descarta",
+            "%s/%s: insufficient history (%s runs); skipping",
             client_id, error_code, len(history),
         )
         return None
@@ -70,7 +70,7 @@ def evaluate_error_code(
     pct = _pct_increase(current_count, baseline_avg)
     if pct < settings.anomaly_pct_threshold:
         log.debug(
-            "%s/%s: incremento %.1f%% por debajo del umbral %.1f%%, se descarta",
+            "%s/%s: increase %.1f%% is below threshold %.1f%%; skipping",
             client_id, error_code, pct, settings.anomaly_pct_threshold,
         )
         return None
@@ -80,13 +80,13 @@ def evaluate_error_code(
     )
     if streak < settings.anomaly_min_streak:
         log.debug(
-            "%s/%s: racha %s por debajo del mínimo %s, se descarta",
+            "%s/%s: streak %s is below minimum %s; skipping",
             client_id, error_code, streak, settings.anomaly_min_streak,
         )
         return None
 
     log.info(
-        "%s/%s: anomalía calificada (actual=%s baseline=%.1f incremento=%.1f%% racha=%s)",
+        "%s/%s: qualifying anomaly (current=%s baseline=%.1f increase=%.1f%% streak=%s)",
         client_id, error_code, current_count, baseline_avg, pct, streak,
     )
     return Anomaly(
@@ -106,11 +106,11 @@ def detect_anomalies(
     client_id: str,
     current_counts: dict,
 ) -> List[Anomaly]:
-    log.debug("Evaluando %s códigos de error para %s", len(current_counts), client_id)
+    log.debug("Evaluating %s error codes for %s", len(current_counts), client_id)
     anomalies = []
     for error_code, count in current_counts.items():
         anomaly = evaluate_error_code(db, settings, client_id, error_code, count)
         if anomaly is not None:
             anomalies.append(anomaly)
-    log.info("%s: %s anomalías detectadas", client_id, len(anomalies))
+    log.info("%s: detected %s anomalies", client_id, len(anomalies))
     return anomalies

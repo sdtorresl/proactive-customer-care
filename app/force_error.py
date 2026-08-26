@@ -6,7 +6,7 @@ auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
 account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
 client = Client(account_sid, auth_token)  # client credentials from clients.json
 
-# for i in range(6):
+# for i in range(20):
 #     try:
 #         client.messages.create(
 #             to="+1000000000",          # intentionally invalid number
@@ -16,7 +16,7 @@ client = Client(account_sid, auth_token)  # client credentials from clients.json
 #     except Exception as e:
 #         print("Forced error:", e)
 
-for i in range(15):
+for i in range(30):
     try:
         client.messages.create(
             body="", # Required data is missing (Error 21602)

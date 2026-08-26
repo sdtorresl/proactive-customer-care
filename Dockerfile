@@ -2,6 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Sin esto, la cadena de certificados de root CAs puede quedar desactualizada
+# y las llamadas HTTPS (p.ej. a Zendesk) fallan con SSLCertVerificationError.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

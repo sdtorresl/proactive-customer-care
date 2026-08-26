@@ -16,9 +16,9 @@ def _build_email_body(client: Client, anomaly: Anomaly, ticket_url: Optional[str
         "Our monitoring system detected a sustained increase in errors "
         f"(code {anomaly.error_code}) in your Twilio account.",
         "",
-        f"- Conteo actual: {anomaly.current_count}",
+        f"- Current count: {anomaly.current_count}",
         f"- Historical average: {anomaly.baseline_avg:.1f}",
-        f"- Incremento: {anomaly.pct_increase:.1f}%",
+        f"- Increase: {anomaly.pct_increase:.1f}%",
         f"- Consecutive increasing runs: {anomaly.streak}",
         "",
     ]
@@ -39,7 +39,7 @@ def notify_client(
     message = Mail(
         from_email=(settings.sendgrid_from_email, settings.sendgrid_from_name),
         to_emails=client.notify_email,
-        subject=f"Alerta: incremento de errores {anomaly.error_code} en su cuenta",
+        subject=f"Alert: increase in errors {anomaly.error_code} in your account",
         plain_text_content=_build_email_body(client, anomaly, ticket_url),
     )
 

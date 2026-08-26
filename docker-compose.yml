@@ -22,11 +22,11 @@ services:
     env_file:
       - .env
     environment:
-      # Sobrescribe DATABASE_URL para apuntar al servicio 'db' del compose.
+      # Override DATABASE_URL to point to the compose 'db' service.
       DATABASE_URL: postgresql://proactive-customer-care:proactive-customer-care@db:5432/proactive-customer-care
-      # RUN_MODE=loop (default) corre dentro del propio contenedor cada
-      # LOOP_INTERVAL_SECONDS sin depender de cron externo, o RUN_MODE=once +
-      # cron del host / `docker compose run --rm app`.
+      # RUN_MODE=loop (default) runs inside the container every
+      # LOOP_INTERVAL_SECONDS without external cron, or RUN_MODE=once +
+      # host cron / `docker compose run --rm app`.
       RUN_MODE: ${RUN_MODE:-loop}
       LOOP_INTERVAL_SECONDS: ${LOOP_INTERVAL_SECONDS:-60}
     volumes:

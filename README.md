@@ -1,92 +1,89 @@
-# proactive-customer-care — Detección de anomalías multi-cliente (Twilio)
+# proactive-customer-care - Multi-client anomaly detection (Twilio)
 
-Sistema que monitorea, para un conjunto de cuentas de Twilio (una por
-cliente), si hay una **subida creciente y sostenida** de errores. Si detecta
-una anomalía real (no un pico aislado):
+System that monitors a set of Twilio accounts (one per client) for a
+a **sustained increase** in errors. If it detects a real anomaly (not an isolated
+spike):
 
-1. Abre un ticket en **Zendesk** con el detalle del cliente, código de error,
-   conteos y hora.
-2. Notifica al cliente por correo vía **SendGrid**.
-3. Guarda todo el histórico en **Postgres** para poder calcular líneas base
-   confiables en corridas futuras.
+1. Opens a **Zendesk** ticket with client details, error code, counts, and time.
+2. Notifies the client by email through **SendGrid**.
+3. Stores the complete history in **Postgres** to calculate reliable baselines
+  in future runs.
 
-No depende de ningún proveedor de IA: la clasificación de anomalías es
-puramente estadística (comparación contra promedio histórico + racha de
-corridas consecutivas al alza), por lo que el comportamiento es determinista,
-reproducible y no consume cuota de ningún LLM.
+It does not depend on any AI provider: anomaly classification is purely
+statistical (comparison against the historical average plus consecutive
+increasing runs), so behavior is deterministic, reproducible, and consumes no
+LLM quota.
 
-## Estructura
+## Structure
 
 ```
 app/
-  config.py          Carga de variables de entorno y roster de clientes
-  database.py         Acceso a Postgres (snapshots, incidentes, bitácora)
-  twilio_source.py     Lectura real de Twilio Monitor Alerts por cliente
-  anomaly.py           Reglas de detección de anomalías
-  zendesk_client.py    Creación de tickets en Zendesk
-  sendgrid_client.py   Notificación al cliente por correo
-  main.py              Orquestador (entrypoint de la corrida)
+  config.py            Load environment variables and client roster
+  database.py          Postgres access (snapshots, incidents, run log)
+  twilio_source.py     Read Twilio Monitor Alerts for each client
+  anomaly.py           Anomaly detection rules
+  zendesk_client.py    Create Zendesk tickets
+  sendgrid_client.py   Notify clients by email
+  main.py              Run orchestrator (run entrypoint)
 db/
-  schema.sql           Esquema de Postgres (se aplica automáticamente al iniciar)
-clients.example.json  Roster de clientes de ejemplo (copiar a clients.json)
-.env.example          Variables de entorno de ejemplo (copiar a .env)
+  schema.sql           Postgres schema (applied automatically on startup)
+clients.example.json  Example client roster (copy to clients.json)
+.env.example          Example environment variables (copy to .env)
 docker-compose.yml     App + Postgres
 Dockerfile
 entrypoint.sh          Modo "once" (una corrida) o "loop" (bucle con intervalo)
 ```
 
-## Puesta en marcha
+## Getting started
 
-1. Copia los archivos de ejemplo y complétalos con tus credenciales reales:
+1. Copy the example files and fill them with your real credentials:
    ```bash
    cp .env.example .env
    cp clients.example.json clients.json
    ```
-   En `clients.json` agrega una entrada por cada cliente/cuenta de Twilio que
-   quieras monitorear (SID + auth token de esa subcuenta, correo de contacto).
+  In `clients.json`, add one entry for each client/Twilio account you want to
+  monitor (the subaccount SID and auth token, plus a contact email).
 
-2. Levanta todo con Docker:
+2. Start everything with Docker:
    ```bash
    docker compose up --build
    ```
-   Esto crea Postgres, aplica el esquema automáticamente y ejecuta una
-   corrida (`RUN_MODE=once` por defecto).
+  This creates Postgres, applies the schema automatically, and runs one
+  cycle (`RUN_MODE=once` by default).
 
-## Cómo se ejecuta periódicamente
+## Periodic execution
 
-Hay dos formas, ambas soportadas por el mismo `entrypoint.sh`:
+There are two options, both supported by the same `entrypoint.sh`:
 
-**Opción A — cron del host (recomendado para producción):**
+**Option A - host cron (recommended for production):**
 ```cron
-# Cada hora
+# Every hour
 0 * * * * cd /ruta/al/proyecto && docker compose run --rm app
 ```
 
-**Opción B — bucle dentro del contenedor**, sin depender de cron externo:
+**Option B - loop inside the container**, without relying on external cron:
 ```bash
 RUN_MODE=loop LOOP_INTERVAL_SECONDS=3600 docker compose up -d app
 ```
 
-## Ajustar la sensibilidad de la detección
+## Adjust detection sensitivity
 
-Todo se controla por variables de entorno (ver `.env.example`):
+Everything is controlled through environment variables (see `.env.example`):
 
-- `LOOKBACK_HOURS`: tamaño de la ventana de cada corrida.
-- `BASELINE_WINDOW`: cuántas corridas históricas se usan como línea base.
-- `ANOMALY_PCT_THRESHOLD`: % de incremento sobre la línea base para calificar.
-- `ANOMALY_MIN_COUNT`: conteo mínimo absoluto (evita ruido de 1-2 errores).
-- `ANOMALY_MIN_STREAK`: nº de corridas consecutivas al alza requeridas antes
-  de escalar — esto es lo que distingue una **tendencia sostenida** de un
-  pico aislado.
-- `INCIDENT_COOLDOWN_HOURS`: evita abrir tickets duplicados para el mismo
-  cliente/código de error en un período corto.
+- `LOOKBACK_HOURS`: size of the window for each run.
+- `BASELINE_WINDOW`: number of historical runs used as the baseline.
+- `ANOMALY_PCT_THRESHOLD`: percentage increase over the baseline required to qualify.
+- `ANOMALY_MIN_COUNT`: absolute minimum count (avoids 1-2 error noise).
+- `ANOMALY_MIN_STREAK`: number of consecutive increasing runs required before
+  escalation, distinguishing a **sustained trend** from an isolated spike.
+- `INCIDENT_COOLDOWN_HOURS`: prevents duplicate tickets for the same client/error
+  within a short period.
 
-## Notas de producción
+## Production notes
 
-- Las credenciales de Twilio son **por cliente** (subcuentas), no una sola
-  cuenta global — así se soporta el rango de clientes que mencionas.
-- `clients.json` nunca se copia dentro de la imagen de Docker (se monta como
-  volumen de solo lectura) para no hornear credenciales en el build.
-- El histórico completo de conteos y de incidentes queda en Postgres, así que
-  puedes construir dashboards o reportes aparte sin volver a golpear la API
-  de Twilio.
+- Twilio credentials are **per client** (subaccounts), rather than one global
+  account, so the application can support multiple clients.
+- `clients.json` is never copied into the Docker image (it is mounted as a
+  read-only volume) to avoid baking credentials into the build.
+- The complete history of counts and incidents remains in Postgres, so you can
+  build dashboards or reports separately without calling the Twilio API again.

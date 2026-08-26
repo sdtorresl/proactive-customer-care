@@ -2,8 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Sin esto, la cadena de certificados de root CAs puede quedar desactualizada
-# y las llamadas HTTPS (p.ej. a Zendesk) fallan con SSLCertVerificationError.
+# Without this, the root CA certificate bundle can become outdated and HTTPS
+# calls (for example, to Zendesk) fail with SSLCertVerificationError.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && update-ca-certificates \
@@ -17,7 +17,7 @@ COPY db/ ./db/
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
-# clients.json se monta como volumen en docker-compose.yml (no se hornea en la imagen
-# porque contiene credenciales de Twilio por cliente).
+# clients.json is mounted as a volume in docker-compose.yml (it is not baked into
+# the image because it contains per-client Twilio credentials).
 
 ENTRYPOINT ["./entrypoint.sh"]
